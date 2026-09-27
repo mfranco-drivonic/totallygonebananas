@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { getCategories, listRecipes } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
@@ -56,6 +57,36 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
             </div>
             <HeroSlide lightSrc={heroLight} darkSrc={heroDark} />
           </div>
+        </div>
+      </section>
+
+      <section className="home-band" aria-labelledby="home-band-h">
+        <div className="home-band-bg" aria-hidden="true">
+          {/* Placeholder art — swap these paths when final band photography is ready. */}
+          <Image
+            className="home-band-img home-band-img-light"
+            src="/main-slider/main-banana-04.webp"
+            alt=""
+            fill
+            sizes="100vw"
+            priority={false}
+          />
+          <Image
+            className="home-band-img home-band-img-dark"
+            src="/main-slider/dark/dark-main-banana-04.webp"
+            alt=""
+            fill
+            sizes="100vw"
+            priority={false}
+          />
+        </div>
+        <div className="wrap home-band-inner">
+          <h2 id="home-band-h">Got ripe bananas? We have ideas.</h2>
+          <p>
+            Placeholder copy for a full-width homepage band. Swap this text for a seasonal
+            promo, community callout, or whatever you want to spotlight next.
+          </p>
+          <Link className="btn" href="/recipes">See what&apos;s cooking</Link>
         </div>
       </section>
 
