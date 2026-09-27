@@ -1,0 +1,150 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { canEdit, getCategories, getRatings, getRecipeBySlug, getSavedIds, getViewer, isEditorRole } from "@/lib/queries";
+import { createClient } from "@/lib/supabase/server";
+import { publicUrl } from "@/lib/media";
+import { shortDate, timeLabel, tintFor } from "@/lib/format";
+import { timersIn } from "@/lib/scale";
+import { MediaView } from "@/components/MediaView";
+import { SaveButton } from "@/components/SaveButton";
+import { Difficulty } from "@/components/Difficulty";
+import { IngredientPanel } from "@/components/IngredientPanel";
+import { MadeItForm } from "@/components/MadeItForm";
+import { DeleteRecipeButton, RemoveLogButton, ReviewButtons } from "@/components/OwnerTools";
+import type { CookLog } from "@/lib/types";
+
+export async function generateMetadata({ params }: PageProps<"/recipes/[slug]">): Promise<Metadata> {
+  const { slug } = await params;
+  const r = await getRecipeBySlug(slug);
+  if (!r) return { title: "Recipe not found" };
+  const img = publicUrl(r.cover_path);
+  return { title: r.title, description: r.description ?? undefined, openGraph: { title: r.title, description: r.description ?? undefined, images: img ? [img] : undefined } };
+}
+
+const SAVED_MSG: Record<string, string> = {
+  published: "Your recipe is live! That's a-peeling.",
+  pending: "Thanks! Your recipe is in the review queue. You'll see it here in your Banana Stand while you wait.",
+  draft: "Draft saved. Only you can see it until you submit it.",
+};
+
+export default async function RecipePage({ params, searchParams }: PageProps<"/recipes/[slug]">) {
+  const { slug } = await params;
+  const sp = await searchParams;
+  const r = await getRecipeBySlug(slug);
+  if (!r) notFound();
+
+  const [{ userId, profile }, categories, ratings] = await Promise.all([getViewer(), getCategories(), getRatings([r.id])]);
+  const saved = (await getSavedIds(userId)).has(r.id);
+  const supabase = await createClient();
+  const { data: logsData } = await supabase.from("cook_logs").select("*").eq("recipe_id", r.id).order("created_at", { ascending: false }).limit(30);
+  const logs = (logsData as CookLog[] | null) ?? [];
+  const { data: names } = logs.length
+    ? await supabase.from("profiles").select("id, display_name").in("id", [...new Set(logs.map((l) => l.user_id))])
+    : { data: [] as { id: string; display_name: string | null }[] };
+  const nameOf = new Map((names ?? []).map((n) => [n.id, n.display_name]));
+
+  const cat = categories.find((c) => c.id === r.category_id);
+  const rating = ratings.get(r.id);
+  const editable = canEdit(r, userId, profile);
+  const savedMsg = typeof sp.saved === "string" ? SAVED_MSG[sp.saved] : undefined;
+  const gallery = r.recipe_media;
+  const hero = gallery[0];
+
+  return (
+    <div className="wrap">
+      {savedMsg && <p className="notice-inline" role="status">{savedMsg}</p>}
+      {r.status !== "published" && (
+        <p className="notice-inline warn" role="status">
+          {r.status === "pending" && "This recipe is waiting for review. Only you and the editors can see it."}
+          {r.status === "draft" && "This is a draft. Only you can see it."}
+          {r.status === "rejected" && `An editor sent this back${r.review_note ? `: “${r.review_note}”` : "."} Edit it and resubmit when you're ready.`}
+        </p>
+      )}
+
+      <nav className="crumbs" aria-label="Breadcrumb">
+        <Link href="/recipes">Recipes</Link>
+        {cat && <><span aria-hidden="true">/</span><Link href={`/recipes?category=${cat.id}`}>{cat.name}</Link></>}
+      </nav>
+
+      <section className="d-hero">
+        <div>
+          <div className="d-art" style={{ background: tintFor(r.category_id, categories) }}>
+            {hero ? <MediaView path={hero.path} kind={hero.kind} alt={hero.caption || r.title} priority sizes="(max-width: 900px) 100vw, 520px" /> : <span aria-hidden="true">{r.emoji || cat?.emoji || "🍌"}</span>}
+          </div>
+          {gallery.length > 1 && (
+            <ul className="thumbs" aria-label="More photos and videos">
+              {gallery.slice(1).map((m) => (
+                <li key={m.id}>
+                  <div className="thumb-media"><MediaView path={m.path} kind={m.kind} alt={m.caption || `${r.title} photo`} sizes="160px" /></div>
+                  {m.caption && <span>{m.caption}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div>
+          <h1 className="h1">{r.title}</h1>
+          {r.description && <p className="lede">{r.description}</p>}
+          <div className="meta">
+            {timeLabel(r.total_minutes, r.time_note) && <span className="pill time">{timeLabel(r.total_minutes, r.time_note)}</span>}
+            {r.difficulty ? <Difficulty value={r.difficulty} /> : null}
+            {r.servings ? <span className="pill">Serves {r.servings}</span> : null}
+            {rating && <span className="pill rate">★ {rating.avg_rating} ({rating.ratings_count})</span>}
+            {r.tags.map((t) => <Link key={t} className="pill" href={`/recipes?tag=${encodeURIComponent(t)}`}>{t}</Link>)}
+          </div>
+          {r.author && <p className="byline">Shared by {r.author.display_name || "a banana fan"}{r.published_at ? ` on ${shortDate(r.published_at)}` : ""}</p>}
+          <div className="d-actions">
+            <a className="btn" href="#made">I made it!</a>
+            <SaveButton recipeId={r.id} title={r.title} initialSaved={saved} signedIn={!!userId} className="inline" />
+            {editable && <Link className="btn ghost small" href={`/recipes/${r.slug}/edit`}>Edit recipe</Link>}
+            {editable && <DeleteRecipeButton recipeId={r.id} />}
+          </div>
+          {r.status === "pending" && isEditorRole(profile) && <div className="panel" style={{ marginTop: "1.2rem" }}><h2>Review</h2><ReviewButtons recipeId={r.id} /></div>}
+        </div>
+      </section>
+
+      <div className="d-body">
+        <IngredientPanel ingredients={r.ingredients} servings={r.servings} />
+        <section aria-labelledby="steps-h">
+          <h2 id="steps-h" style={{ marginBottom: "1rem" }}>Steps</h2>
+          <ol className="steps">
+            {r.steps.map((s, i) => (
+              <li key={i}>
+                <div>
+                  <p>{s.text}</p>
+                  {timersIn(s.text).length > 0 && <p className="timer-hint">⏲️ {timersIn(s.text).map((t) => t.label).join(", ")}</p>}
+                  {s.media && <div className="step-media-view"><MediaView path={s.media.path} kind={s.media.kind} alt={`Step ${i + 1}`} sizes="(max-width: 900px) 100vw, 560px" /></div>}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
+
+      <section className="block made-grid" id="made" aria-label="Ratings and tips">
+        <MadeItForm recipeId={r.id} signedIn={!!userId} slug={r.slug} />
+        <div>
+          <h2 style={{ marginBottom: "1rem" }}>From other cooks</h2>
+          {logs.length ? (
+            <ul className="reviews">
+              {logs.map((l) => (
+                <li key={l.id} className="review">
+                  <div className="who">
+                    <span>{l.user_id === userId ? "You" : nameOf.get(l.user_id) || "A banana fan"}</span>
+                    <span role="img" aria-label={`${l.rating} out of 5`}>{"🍌".repeat(l.rating)}</span>
+                    <span className="muted">{shortDate(l.created_at)}</span>
+                    {(l.user_id === userId || isEditorRole(profile)) && <RemoveLogButton id={l.id} />}
+                  </div>
+                  {l.tip && <p>{l.tip}</p>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">No ratings yet. Be the first to share how it went!</p>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}

@@ -1,0 +1,40 @@
+import type { Metadata, Viewport } from "next";
+import Script from "next/script";
+import "@fontsource/shrikhand/latin-400.css";
+import "@fontsource-variable/nunito/index.css";
+import "./globals.css";
+import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { siteUrl } from "@/lib/env";
+
+export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl()),
+  title: { default: "Totally Gone Bananas", template: "%s | Totally Gone Bananas" },
+  description: "Banana recipes for every craving, from green to gone. Save favorites, rate what you cook, and share your own.",
+  openGraph: { siteName: "Totally Gone Bananas", images: ["/logo.png"] },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#FBF9E6",
+};
+
+const themeInit = `(function(){try{var t=localStorage.getItem("theme");if(t!=="light"&&t!=="dark"){t="light"}document.documentElement.setAttribute("data-theme",t)}catch(e){document.documentElement.setAttribute("data-theme","light")}})();`;
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" data-theme="light" suppressHydrationWarning>
+      <body>
+        <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: themeInit }} />
+        <a className="skip" href="#main">Skip to content</a>
+        <ThemeToggle />
+        <SiteHeader />
+        <main id="main">{children}</main>
+        <SiteFooter />
+      </body>
+    </html>
+  );
+}

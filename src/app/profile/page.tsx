@@ -1,0 +1,125 @@
+import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getViewer, isEditorRole, type RecipeCardData } from "@/lib/queries";
+import { createClient } from "@/lib/supabase/server";
+import { AVATAR_BUCKET, isLocalUrl, publicUrl } from "@/lib/media";
+import { RecipeGrid } from "@/components/RecipeGrid";
+import { Mascot } from "@/components/Mascot";
+import { CopyLinkButton } from "@/components/OwnerTools";
+import { plural, shortDate, siteUrlSafe } from "@/app/profile/helpers";
+import type { RecipeStatus } from "@/lib/types";
+
+export const metadata: Metadata = { title: "My Banana Stand" };
+
+const LEVELS = [
+  { min: 0, name: "Green Rookie" }, { min: 20, name: "Ripe Regular" }, { min: 50, name: "Peel Pro" }, { min: 100, name: "Bread Boss" }, { min: 180, name: "Top Banana" },
+];
+const STATUS_LABEL: Record<RecipeStatus, string> = { draft: "Draft", pending: "In review", published: "Published", rejected: "Sent back" };
+
+export default async function ProfilePage({ searchParams }: PageProps<"/profile">) {
+  const { userId, profile } = await getViewer();
+  if (!userId || !profile) redirect("/login?next=/profile");
+  const sp = await searchParams;
+  const tab = (["saved", "recipes", "made"] as const).find((t) => t === sp.tab) ?? "saved";
+  const supabase = await createClient();
+
+  const [savesRes, mineRes, logsRes] = await Promise.all([
+    supabase.from("saves").select("created_at, recipe:recipes(id, slug, title, description, category_id, emoji, total_minutes, time_note, servings, difficulty, tags, cover_path, status, published_at, created_at)").eq("user_id", userId).order("created_at", { ascending: false }),
+    supabase.from("recipes").select("id, slug, title, status, review_note, updated_at").eq("author_id", userId).order("updated_at", { ascending: false }),
+    supabase.from("cook_logs").select("id, rating, tip, created_at, recipe:recipes(slug, title)").eq("user_id", userId).order("created_at", { ascending: false }).limit(50),
+  ]);
+  const saved = (savesRes.data ?? []).map((s) => s.recipe as unknown as RecipeCardData | null).filter((r): r is RecipeCardData => !!r);
+  const mine = mineRes.data ?? [];
+  const logs = (logsRes.data ?? []) as unknown as { id: string; rating: number; tip: string | null; created_at: string; recipe: { slug: string; title: string } | null }[];
+
+  const points = saved.length * 3 + logs.length * 8 + mine.filter((m) => m.status === "published").length * 15;
+  const level = LEVELS.reduce((a, l, i) => (points >= l.min ? i : a), 0);
+  const next = LEVELS[level + 1];
+  const pct = next ? Math.round(((points - LEVELS[level].min) / (next.min - LEVELS[level].min)) * 100) : 100;
+  const avatar = publicUrl(profile.avatar_path, AVATAR_BUCKET);
+
+  return (
+    <div className="wrap">
+      <section className="stand-hero">
+        <Mascot level={level} label={`Your mascot at level ${level + 1}`} />
+        <div>
+          <div className="who-row">
+            <div className="avatar-lg">{avatar ? <Image src={avatar} alt="" fill sizes="96px" unoptimized={isLocalUrl(avatar)} /> : <span aria-hidden="true">{(profile.display_name || "?").slice(0, 1).toUpperCase()}</span>}</div>
+            <div>
+              <h1 className="h1">{profile.display_name || "Banana fan"}</h1>
+              <p className="muted">
+                {profile.username ? `@${profile.username} · ` : ""}{LEVELS[level].name}{profile.role !== "member" ? ` · ${profile.role === "admin" ? "Admin" : "Editor"}` : ""}
+              </p>
+            </div>
+          </div>
+          {profile.bio && <p>{profile.bio}</p>}
+          <div className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Progress to next level"><i style={{ width: `${Math.max(3, pct)}%` }} /></div>
+          <p className="hint">{next ? `${points} points. ${next.min - points} more to become a ${next.name}.` : `${points} points. Top Banana. Crown secured.`}</p>
+          <div className="stats">
+            <div className="stat"><b>{saved.length}</b><span>saved</span></div>
+            <div className="stat"><b>{logs.length}</b><span>made</span></div>
+            <div className="stat"><b>{mine.length}</b><span>shared</span></div>
+          </div>
+          <div className="row-actions" style={{ marginTop: "1.2rem" }}>
+            <Link className="btn" href="/recipes/new">Share a recipe</Link>
+            <Link className="btn ghost" href="/profile/settings">Edit profile</Link>
+            <form action="/auth/signout" method="post"><button className="btn ghost" type="submit">Sign out</button></form>
+          </div>
+          {isEditorRole(profile) && (
+            <div className="panel invite">
+              <p><b>Invite contributors.</b> Anyone with this link can sign in and submit a recipe for your review.</p>
+              <CopyLinkButton url={`${await siteUrlSafe()}/recipes/new`} label="Copy the submission link" />
+            </div>
+          )}
+        </div>
+      </section>
+
+      <nav className="tabs" aria-label="Your stuff">
+        <Link href="/profile?tab=saved" aria-current={tab === "saved" ? "page" : undefined}>Saved ({saved.length})</Link>
+        <Link href="/profile?tab=recipes" aria-current={tab === "recipes" ? "page" : undefined}>My recipes ({mine.length})</Link>
+        <Link href="/profile?tab=made" aria-current={tab === "made" ? "page" : undefined}>Cooking history ({logs.length})</Link>
+      </nav>
+
+      <section className="block" style={{ paddingTop: "1.2rem" }}>
+        {tab === "saved" && (
+          <RecipeGrid recipes={saved} empty={<div className="empty"><span className="big">💛</span><p>Nothing saved yet. Tap the heart on any recipe to keep it here.</p><Link className="btn" href="/recipes">Browse recipes</Link></div>} />
+        )}
+        {tab === "recipes" && (mine.length ? (
+          <ul className="rows">
+            {mine.map((m) => (
+              <li key={m.id} className="row">
+                <div>
+                  <h3><Link href={`/recipes/${m.slug}`}>{m.title}</Link></h3>
+                  <p>Updated {shortDate(m.updated_at)}{m.status === "rejected" && m.review_note ? `. Editor's note: “${m.review_note}”` : ""}</p>
+                </div>
+                <div className="end">
+                  <span className={`status s-${m.status}`}>{STATUS_LABEL[m.status as RecipeStatus]}</span>
+                  {(m.status !== "published" || isEditorRole(profile)) && <Link className="btn ghost small" href={`/recipes/${m.slug}/edit`}>Edit</Link>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="empty"><span className="big">📝</span><p>You haven&apos;t shared a recipe yet.</p><Link className="btn" href="/recipes/new">Share your first recipe</Link></div>
+        ))}
+        {tab === "made" && (logs.length ? (
+          <ul className="rows">
+            {logs.map((l) => (
+              <li key={l.id} className="row">
+                <div>
+                  <h3>{l.recipe ? <Link href={`/recipes/${l.recipe.slug}`}>{l.recipe.title}</Link> : "A removed recipe"}</h3>
+                  <p>{shortDate(l.created_at)}: <span role="img" aria-label={`${l.rating} out of 5`}>{"🍌".repeat(l.rating)}</span>{l.tip ? ` “${l.tip}”` : ""}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="empty"><span className="big">👩‍🍳</span><p>Tap &ldquo;I made it!&rdquo; on a recipe after you cook it and it&apos;ll show up here.</p></div>
+        ))}
+        <p className="hint" style={{ marginTop: "1rem" }}>{plural(points, "point")} so far: saves are worth 3, each dish you make 8, and each published recipe 15.</p>
+      </section>
+    </div>
+  );
+}

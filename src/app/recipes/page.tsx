@@ -1,0 +1,78 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { getCategories, listRecipes, type RecipeFilters } from "@/lib/queries";
+import { CategoryStickers } from "@/components/CategoryStickers";
+import { RecipeGrid } from "@/components/RecipeGrid";
+import { TAGS } from "@/lib/types";
+import { plural } from "@/lib/format";
+
+export const metadata: Metadata = { title: "Recipes" };
+
+const str = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
+
+export default async function RecipesPage({ searchParams }: PageProps<"/recipes">) {
+  const sp = await searchParams;
+  const f: RecipeFilters = {
+    q: str(sp.q)?.trim().slice(0, 100) || undefined,
+    category: str(sp.category),
+    tag: TAGS.includes(str(sp.tag) as (typeof TAGS)[number]) ? str(sp.tag) : undefined,
+    maxMinutes: Number(str(sp.time)) || undefined,
+    sort: (["new", "quick", "easy", "az"] as const).find((s) => s === str(sp.sort)) ?? "new",
+  };
+  const [categories, recipes] = await Promise.all([getCategories(), listRecipes(f)]);
+  const cat = categories.find((c) => c.id === f.category);
+  const href = (patch: Partial<Record<string, string | undefined>>) => {
+    const q = new URLSearchParams();
+    const merged = { q: f.q, category: f.category, tag: f.tag, time: f.maxMinutes ? String(f.maxMinutes) : undefined, sort: f.sort === "new" ? undefined : f.sort, ...patch };
+    Object.entries(merged).forEach(([k, v]) => v && q.set(k, v));
+    const s = q.toString();
+    return `/recipes${s ? `?${s}` : ""}`;
+  };
+  const filtered = Boolean(f.q || f.category || f.tag || f.maxMinutes);
+
+  return (
+    <div className="wrap">
+      <div className="page-head">
+        <h1>{cat ? cat.name : "Every banana recipe"}</h1>
+        <p className="lede">{cat?.tagline ?? "Filter by category, time, and diet, or search for whatever's already in your kitchen."}</p>
+      </div>
+
+      <form className="filters" action="/recipes" role="search">
+        {f.category && <input type="hidden" name="category" value={f.category} />}
+        {f.tag && <input type="hidden" name="tag" value={f.tag} />}
+        <div className="f search-f">
+          <label htmlFor="q">Search</label>
+          <input id="q" name="q" type="search" className="field" defaultValue={f.q} placeholder="Chocolate, oats, walnuts…" />
+        </div>
+        <div className="f">
+          <label htmlFor="time">Time</label>
+          <select id="time" name="time" className="field" defaultValue={f.maxMinutes ? String(f.maxMinutes) : ""}>
+            <option value="">Any time</option><option value="15">15 min or less</option><option value="30">30 min or less</option><option value="60">1 hour or less</option>
+          </select>
+        </div>
+        <div className="f">
+          <label htmlFor="sort">Sort by</label>
+          <select id="sort" name="sort" className="field" defaultValue={f.sort}>
+            <option value="new">Newest</option><option value="quick">Quickest</option><option value="easy">Easiest</option><option value="az">A to Z</option>
+          </select>
+        </div>
+        <button className="btn" type="submit">Apply</button>
+      </form>
+
+      <CategoryStickers small categories={categories} active={f.category} hrefFor={(id) => href({ category: id ?? undefined })} />
+      <nav className="chips" aria-label="Diet and lifestyle">
+        {TAGS.map((t) => (
+          <Link key={t} className="chip" href={href({ tag: f.tag === t ? undefined : t })} aria-current={f.tag === t ? "true" : undefined}>{t}</Link>
+        ))}
+      </nav>
+
+      <div className="result-bar">
+        <p aria-live="polite">{plural(recipes.length, "recipe")}{filtered ? " found" : ""}</p>
+        {filtered && <Link className="btn ghost small" href="/recipes">Clear filters</Link>}
+      </div>
+
+      <RecipeGrid recipes={recipes} showCategory={!cat} empty={<div className="empty"><span className="big">🍌🔍</span><p>Nothing matches all of those filters.</p><Link className="btn ghost" href="/recipes">Clear filters</Link></div>} />
+      <div style={{ height: "3rem" }} />
+    </div>
+  );
+}

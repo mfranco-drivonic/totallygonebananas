@@ -1,0 +1,89 @@
+import { cache } from "react";
+import { createClient } from "@/lib/supabase/server";
+import type { Category, Profile, Rating, Recipe, RecipeWithExtras } from "@/lib/types";
+
+const CARD_FIELDS =
+  "id, slug, title, description, category_id, emoji, total_minutes, time_note, servings, difficulty, tags, cover_path, status, published_at, created_at";
+
+export type RecipeCardData = Pick<
+  Recipe,
+  "id" | "slug" | "title" | "description" | "category_id" | "emoji" | "total_minutes" | "time_note" | "servings" | "difficulty" | "tags" | "cover_path" | "status" | "published_at" | "created_at"
+>;
+
+/** The signed-in user and their profile, or nulls. Cached per request. */
+export const getViewer = cache(async () => {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  const userId = data?.claims?.sub ?? null;
+  if (!userId) return { userId: null, profile: null as Profile | null };
+  const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle<Profile>();
+  return { userId, profile };
+});
+
+export const isEditorRole = (p: Profile | null) => p?.role === "editor" || p?.role === "admin";
+
+export const getCategories = cache(async (): Promise<Category[]> => {
+  const supabase = await createClient();
+  const { data } = await supabase.from("categories").select("*").order("sort_order").order("name");
+  return data ?? [];
+});
+
+export interface RecipeFilters {
+  q?: string;
+  category?: string;
+  tag?: string;
+  maxMinutes?: number;
+  sort?: "new" | "quick" | "easy" | "az";
+  limit?: number;
+}
+
+export async function listRecipes(f: RecipeFilters = {}): Promise<RecipeCardData[]> {
+  const supabase = await createClient();
+  let query = supabase.from("recipes").select(CARD_FIELDS).eq("status", "published");
+  if (f.category) query = query.eq("category_id", f.category);
+  if (f.tag) query = query.contains("tags", [f.tag]);
+  if (f.maxMinutes) query = query.lte("total_minutes", f.maxMinutes);
+  if (f.q) query = query.textSearch("search", f.q, { type: "websearch", config: "english" });
+  switch (f.sort) {
+    case "quick": query = query.order("total_minutes", { ascending: true, nullsFirst: false }); break;
+    case "easy": query = query.order("difficulty", { ascending: true, nullsFirst: false }); break;
+    case "az": query = query.order("title"); break;
+    default: query = query.order("published_at", { ascending: false, nullsFirst: false });
+  }
+  const { data } = await query.limit(f.limit ?? 60);
+  return (data as RecipeCardData[]) ?? [];
+}
+
+export async function getRatings(ids: string[]): Promise<Map<string, Rating>> {
+  if (!ids.length) return new Map();
+  const supabase = await createClient();
+  const { data } = await supabase.from("recipe_ratings").select("*").in("recipe_id", ids);
+  return new Map((data as Rating[] | null)?.map((r) => [r.recipe_id, r]) ?? []);
+}
+
+export async function getSavedIds(userId: string | null): Promise<Set<string>> {
+  if (!userId) return new Set();
+  const supabase = await createClient();
+  const { data } = await supabase.from("saves").select("recipe_id").eq("user_id", userId);
+  return new Set(data?.map((s) => s.recipe_id as string) ?? []);
+}
+
+export const getRecipeBySlug = cache(async (slug: string): Promise<RecipeWithExtras | null> => {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("recipes")
+    .select("*, author:profiles!recipes_author_id_fkey(username, display_name, avatar_path), recipe_media(*)")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (!data) return null;
+  const recipe = data as RecipeWithExtras;
+  recipe.recipe_media = [...(recipe.recipe_media ?? [])].sort((a, b) => a.position - b.position);
+  return recipe;
+});
+
+/** Can this viewer edit this recipe? Mirrors the database policy. */
+export function canEdit(recipe: Pick<Recipe, "author_id" | "status">, userId: string | null, profile: Profile | null) {
+  if (!userId) return false;
+  if (isEditorRole(profile)) return true;
+  return recipe.author_id === userId && recipe.status !== "published";
+}
