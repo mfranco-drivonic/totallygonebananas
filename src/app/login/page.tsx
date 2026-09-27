@@ -20,7 +20,12 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         <h1>Come on in</h1>
         <p className="lede" style={{ marginInline: "auto" }}>Sign in to save recipes, rate what you cook, and share your own.</p>
       </div>
-      {failed && <p className="notice-inline warn" role="alert">That sign-in link didn&apos;t work or has expired. Request a new one below.</p>}
+      {failed && (
+        <p className="notice-inline warn" role="alert">
+          That sign-in link didn&apos;t work or has expired. Request a new one below — or enter the
+          one-time code from the email.
+        </p>
+      )}
       <LoginForm next={next} googleEnabled={process.env.NEXT_PUBLIC_AUTH_GOOGLE === "true"} />
     </div>
   );

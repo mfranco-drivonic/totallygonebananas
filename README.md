@@ -82,9 +82,12 @@ In **Authentication → URL Configuration**:
 - **Site URL:** `http://localhost:3000` (your real domain in production)
 - **Redirect URLs:** add `http://localhost:3000/auth/callback` and `https://your-domain.com/auth/callback`
 
-Email magic links work out of the box. For Google, enable it under **Authentication → Providers**, then set `NEXT_PUBLIC_AUTH_GOOGLE=true`.
+Then open **Authentication → Email Templates → Magic Link** and paste the body from `supabase/templates/magic_link.html` (or run `node scripts/update-magic-link-template.mjs` with a Supabase access token). That template sends users to `/auth/callback` with a `token_hash`, which is what Next.js SSR needs. The default Supabase `ConfirmationURL` link breaks when the email is opened in another app or tab.
 
-> The built-in Supabase email sender is rate-limited and meant for testing. Before launch, add your own SMTP provider under **Authentication → Emails**.
+For Google, enable it under **Authentication → Providers**, then set `NEXT_PUBLIC_AUTH_GOOGLE=true`.
+
+> The built-in Supabase email sender is rate-limited and meant for testing. Before launch, add your own SMTP provider under **Authentication → Emails**. On newer Free plans, custom SMTP is also required before email templates can be edited.
+
 
 ### 5. Run it
 
