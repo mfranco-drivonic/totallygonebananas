@@ -390,12 +390,11 @@ ol.steps p { margin: .25rem 0 0; }
 }
 
 /* ---------- about / login ---------- */
-.about { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: 2.5rem; align-items: start; padding-bottom: 2rem; }
+.about { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: 2.5rem; align-items: center; padding-bottom: 2rem; }
 .about p { font-weight: 600; max-width: 60ch; }
 .about h2 { margin: 1.8rem 0 .6rem; font-size: 1.7rem; }
-.ripe-guide { display: grid; gap: .6rem; margin: 0; padding: 0; list-style: none; }
-.ripe-guide li { display: grid; grid-template-columns: 28px 1fr; gap: .7rem; align-items: start; font-weight: 600; }
-.ripe-guide i { width: 28px; height: 28px; border-radius: 50%; border: 2.5px solid var(--brown); margin-top: .1rem; }
+.about-slide { position: sticky; top: 5rem; }
+.about-slide .mascot, .about-slide .hero-slide-stack { max-width: min(420px, 100%); }
 .login { max-width: 520px; padding-bottom: 3rem; }
 .login-mascot { max-width: 260px; margin: 1.5rem auto 0; }
 

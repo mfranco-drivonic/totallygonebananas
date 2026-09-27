@@ -110,20 +110,25 @@ Refresh the site. You'll see **Review queue** in the navigation, a **Publish** b
 
 ## Put it on GitHub
 
+This app needs a **Node host** (Vercel, etc.). GitHub Pages only serves static files and cannot run Next.js server actions, auth callbacks, or Supabase SSR — do not use a Pages deploy workflow.
+
 ```bash
-git init
-git add .
-git commit -m "Initial commit: Totally Gone Bananas"
-git branch -M main
-git remote add origin https://github.com/YOUR-NAME/totally-gone-bananas.git
-git push -u origin main
+git remote add github https://github.com/YOUR-ORG/totallygonebananas.git
+git push -u github main
 ```
 
-`.env.local` is ignored by git, so your keys stay private. The included GitHub Actions workflow runs lint, type checks, and a production build on every push and pull request.
+`.env.local` is ignored by git, so your keys stay private. The included GitHub Actions workflow (`.github/workflows/ci.yml`) runs lint, typecheck, and a production build on every push and pull request.
 
-## Deploy
+## Deploy (Vercel)
 
-The easiest route is [Vercel](https://vercel.com/new): import the GitHub repo, add the environment variables from step 3 (with `NEXT_PUBLIC_SITE_URL` set to your real domain), and deploy. Then add your production `/auth/callback` URL in Supabase (step 4).
+1. Import the GitHub repo at [vercel.com/new](https://vercel.com/new).
+2. Add environment variables (same names as `.env.local`):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_SITE_URL` → your Vercel URL (e.g. `https://totallygonebananas.vercel.app`)
+   - `NEXT_PUBLIC_AUTH_GOOGLE=true` only if Google sign-in is enabled
+3. Deploy. Framework preset: **Next.js** (auto-detected). Output is the Node server — leave `output` unset (no static export).
+4. In Supabase → Authentication → URL Configuration, set **Site URL** to that Vercel URL and add `https://your-domain/auth/callback` under **Redirect URLs**.
 
 ## Scripts
 

@@ -12,6 +12,7 @@ jobs:
       # Placeholder values so the build can run; no requests are made at build time.
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
       NEXT_TELEMETRY_DISABLED: 1
     steps:
       - uses: actions/checkout@v4
