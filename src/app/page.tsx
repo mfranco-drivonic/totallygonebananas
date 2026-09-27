@@ -3,9 +3,10 @@ import { getCategories, listRecipes } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
 import { CategoryStickers } from "@/components/CategoryStickers";
 import { RecipeGrid } from "@/components/RecipeGrid";
-import { Mascot } from "@/components/Mascot";
+import { HeroSlide } from "@/components/HeroSlide";
 import { MediaView } from "@/components/MediaView";
 import { timeLabel } from "@/lib/format";
+import { getDarkMainSliderImages, getMainSliderImages, pickRandomSlide } from "@/lib/main-slider";
 
 /** Recipe of the day: the same pick for everyone for 24 hours (UTC). */
 function recipeOfTheDay<T>(list: T[]): T | null {
@@ -25,13 +26,17 @@ async function categoryCounts() {
 export default async function HomePage({ searchParams }: PageProps<"/">) {
   const sp = await searchParams;
   const active = typeof sp.category === "string" ? sp.category : undefined;
-  const [categories, counts, latest, all] = await Promise.all([
+  const [categories, counts, latest, all, lightSlides, darkSlides] = await Promise.all([
     getCategories(),
     categoryCounts(),
     listRecipes({ category: active, limit: 8 }),
     listRecipes({ limit: 200, sort: "az" }),
+    getMainSliderImages(),
+    getDarkMainSliderImages(),
   ]);
   const cat = categories.find((c) => c.id === active);
+  const heroLight = pickRandomSlide(lightSlides);
+  const heroDark = pickRandomSlide(darkSlides);
 
   const rotd = recipeOfTheDay(all);
 
@@ -49,7 +54,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
               <strong>{cat ? cat.name : "All recipes"}</strong>
               <span>{cat?.tagline ?? `${all.length} ways to go bananas.`}</span>
             </div>
-            <Mascot />
+            <HeroSlide lightSrc={heroLight} darkSrc={heroDark} />
           </div>
         </div>
       </section>

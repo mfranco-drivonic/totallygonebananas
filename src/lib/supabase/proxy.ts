@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "@/lib/env";
+import { REFERRAL_COOKIE, sanitizeReferral } from "@/lib/referral";
 
 const PROTECTED = [/^\/profile(\/|$)/, /^\/recipes\/new$/, /^\/recipes\/[^/]+\/edit$/, /^\/admin(\/|$)/];
 
@@ -28,6 +29,32 @@ export async function updateSession(request: NextRequest) {
   const signedIn = Boolean(data?.claims?.sub);
 
   const path = request.nextUrl.pathname;
+
+  // Remember invite attribution from UTM so it survives sign-in and the submit form.
+  if (path === "/recipes/new" || path === "/login") {
+    let fromQuery = sanitizeReferral(request.nextUrl.searchParams.get("utm_content"));
+    if (!fromQuery) {
+      const next = request.nextUrl.searchParams.get("next");
+      if (next) {
+        try {
+          const decoded = decodeURIComponent(next);
+          const q = decoded.includes("?") ? decoded.slice(decoded.indexOf("?") + 1) : "";
+          fromQuery = sanitizeReferral(new URLSearchParams(q).get("utm_content"));
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    if (fromQuery) {
+      response.cookies.set(REFERRAL_COOKIE, fromQuery, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30,
+        sameSite: "lax",
+        httpOnly: true,
+      });
+    }
+  }
+
   if (!signedIn && PROTECTED.some((re) => re.test(path))) {
     const login = request.nextUrl.clone();
     login.pathname = "/login";

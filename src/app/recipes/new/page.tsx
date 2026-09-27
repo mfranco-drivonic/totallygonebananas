@@ -5,9 +5,18 @@ import { RecipeForm } from "@/components/RecipeForm";
 
 export const metadata: Metadata = { title: "Share a recipe" };
 
-export default async function NewRecipePage() {
+export default async function NewRecipePage({ searchParams }: PageProps<"/recipes/new">) {
+  const sp = await searchParams;
   const [{ userId, profile }, categories] = await Promise.all([getViewer(), getCategories()]);
-  if (!userId) redirect("/login?next=/recipes/new");
+  if (!userId) {
+    const next = new URLSearchParams();
+    for (const key of ["utm_source", "utm_medium", "utm_campaign", "utm_content"] as const) {
+      const v = sp[key];
+      if (typeof v === "string") next.set(key, v);
+    }
+    const q = next.toString();
+    redirect(`/login?next=${encodeURIComponent(`/recipes/new${q ? `?${q}` : ""}`)}`);
+  }
   const editor = isEditorRole(profile);
   return (
     <div className="wrap narrow">

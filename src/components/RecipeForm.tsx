@@ -255,7 +255,7 @@ export function RecipeForm({ userId, isEditor, categories, recipeId, initial }: 
     const num = (s: string) => (s.trim() ? Math.round(Number(s)) : null);
     const payload = {
       title: v.title, description: v.description, categoryId: v.categoryId,
-      newCategory: v.categoryId === "__new" ? { name: v.newCatName, emoji: v.newCatEmoji } : null,
+      newCategory: v.categoryId === "__new" ? { name: v.newCatName, emoji: "" } : null,
       emoji: v.emoji, totalMinutes: num(v.totalMinutes), timeNote: v.timeNote, servings: num(v.servings), difficulty: v.difficulty, tags: v.tags,
       ingredients: v.ingredients.map((r) => r.text.trim()).filter(Boolean),
       steps: v.steps.filter((s) => s.text.trim()).map((s) => ({ text: s.text.trim(), media: s.media?.status === "done" && s.media.path ? { kind: s.media.kind, path: s.media.path } : null })),
@@ -308,25 +308,19 @@ export function RecipeForm({ userId, isEditor, categories, recipeId, initial }: 
           <input id={fid("title-in")} className="field" value={v.title} maxLength={100} placeholder="Grandma Rose's banana pudding" onChange={(e) => set("title", e.target.value)} aria-invalid={!!err("title")} aria-describedby={err("title") ? fid("title-err") : undefined} />
           {err("title") && <p className="f-err" id={fid("title-err")}>{err("title")}</p>}
         </div>
-        <div className="f-grid">
-          <div className="f" id={fid("categoryId")}>
-            <label htmlFor={fid("cat")}>Category</label>
-            <select id={fid("cat")} className="field" value={v.categoryId} onChange={(e) => set("categoryId", e.target.value)} aria-invalid={!!err("categoryId")}>
-              <option value="" disabled>Pick one…</option>
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.emoji ? `${c.emoji} ` : ""}{c.name}</option>)}
-              {isEditor && <option value="__new">New category…</option>}
-            </select>
-            {err("categoryId") && <p className="f-err">{err("categoryId")}</p>}
-          </div>
-          <div className="f">
-            <label htmlFor={fid("emoji")}>Emoji <small>(shown when there&apos;s no photo)</small></label>
-            <input id={fid("emoji")} className="field emoji-in" value={v.emoji} maxLength={8} placeholder="🍌" onChange={(e) => set("emoji", e.target.value)} />
-          </div>
+        <div className="f" id={fid("categoryId")}>
+          <label htmlFor={fid("cat")}>Category</label>
+          <select id={fid("cat")} className="field" value={v.categoryId} onChange={(e) => set("categoryId", e.target.value)} aria-invalid={!!err("categoryId")}>
+            <option value="" disabled>Pick one…</option>
+            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {isEditor && <option value="__new">New category…</option>}
+          </select>
+          {err("categoryId") && <p className="f-err">{err("categoryId")}</p>}
         </div>
         {v.categoryId === "__new" && (
-          <div className="f-grid">
-            <div className="f"><label htmlFor={fid("nc")}>New category name</label><input id={fid("nc")} className="field" value={v.newCatName} maxLength={40} placeholder="Lunchbox" onChange={(e) => set("newCatName", e.target.value)} /></div>
-            <div className="f"><label htmlFor={fid("nce")}>Its emoji</label><input id={fid("nce")} className="field emoji-in" value={v.newCatEmoji} maxLength={8} placeholder="🍱" onChange={(e) => set("newCatEmoji", e.target.value)} /></div>
+          <div className="f">
+            <label htmlFor={fid("nc")}>New category name</label>
+            <input id={fid("nc")} className="field" value={v.newCatName} maxLength={40} placeholder="Lunchbox" onChange={(e) => set("newCatName", e.target.value)} />
           </div>
         )}
         <div className="f">

@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
-import type { Category, Profile, Rating, Recipe, RecipeWithExtras } from "@/lib/types";
+import type { Category, Post, PostWithAuthor, Profile, Rating, Recipe, RecipeWithExtras } from "@/lib/types";
 
 const CARD_FIELDS =
   "id, slug, title, description, category_id, emoji, total_minutes, time_note, servings, difficulty, tags, cover_path, status, published_at, created_at";
@@ -14,13 +14,28 @@ export type RecipeCardData = Pick<
 export const getViewer = cache(async () => {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
-  const userId = data?.claims?.sub ?? null;
+  const claims = data?.claims;
+  const userId = (claims?.sub as string | undefined) ?? null;
   if (!userId) return { userId: null, profile: null as Profile | null };
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle<Profile>();
-  return { userId, profile };
+
+  const { data: existing } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle<Profile>();
+  if (existing) return { userId, profile: existing };
+
+  // Accounts created before the schema (or if the auth trigger missed) have no row yet.
+  const email = typeof claims?.email === "string" ? claims.email : "";
+  const meta = claims?.user_metadata as { full_name?: string; name?: string } | undefined;
+  const display =
+    meta?.full_name || meta?.name || (email.includes("@") ? email.split("@")[0] : null) || "Banana fan";
+  const { data: created } = await supabase
+    .from("profiles")
+    .upsert({ id: userId, display_name: display }, { onConflict: "id", ignoreDuplicates: false })
+    .select("*")
+    .maybeSingle<Profile>();
+  return { userId, profile: created ?? null };
 });
 
 export const isEditorRole = (p: Profile | null) => p?.role === "editor" || p?.role === "admin";
+export const isAdminRole = (p: Profile | null) => p?.role === "admin";
 
 export const getCategories = cache(async (): Promise<Category[]> => {
   const supabase = await createClient();
@@ -86,4 +101,67 @@ export function canEdit(recipe: Pick<Recipe, "author_id" | "status">, userId: st
   if (!userId) return false;
   if (isEditorRole(profile)) return true;
   return recipe.author_id === userId && recipe.status !== "published";
+}
+
+export type AdminRecipeRow = Pick<
+  Recipe,
+  "id" | "slug" | "title" | "status" | "category_id" | "updated_at" | "created_at" | "author_id"
+>;
+
+export async function listAdminRecipes(limit = 100): Promise<AdminRecipeRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("recipes")
+    .select("id, slug, title, status, category_id, updated_at, created_at, author_id")
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  return (data as AdminRecipeRow[]) ?? [];
+}
+
+export async function listPosts(opts: { publishedOnly?: boolean; limit?: number } = {}): Promise<Post[]> {
+  const supabase = await createClient();
+  let query = supabase.from("posts").select("*").order("published_at", { ascending: false, nullsFirst: false }).order("updated_at", { ascending: false });
+  if (opts.publishedOnly) query = query.eq("status", "published");
+  const { data } = await query.limit(opts.limit ?? 60);
+  return (data as Post[]) ?? [];
+}
+
+export const getPostBySlug = cache(async (slug: string): Promise<PostWithAuthor | null> => {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("posts")
+    .select("*, author:profiles!posts_author_id_fkey(username, display_name, avatar_path)")
+    .eq("slug", slug)
+    .maybeSingle();
+  return (data as PostWithAuthor | null) ?? null;
+});
+
+export const getPostById = cache(async (id: string): Promise<Post | null> => {
+  const supabase = await createClient();
+  const { data } = await supabase.from("posts").select("*").eq("id", id).maybeSingle();
+  return (data as Post | null) ?? null;
+});
+
+export async function listProfiles(): Promise<Profile[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
+  return (data as Profile[]) ?? [];
+}
+
+export async function adminCounts() {
+  const supabase = await createClient();
+  const [recipes, pending, posts, categories, profiles] = await Promise.all([
+    supabase.from("recipes").select("id", { count: "exact", head: true }),
+    supabase.from("recipes").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    supabase.from("posts").select("id", { count: "exact", head: true }),
+    supabase.from("categories").select("id", { count: "exact", head: true }),
+    supabase.from("profiles").select("id", { count: "exact", head: true }),
+  ]);
+  return {
+    recipes: recipes.count ?? 0,
+    pending: pending.count ?? 0,
+    posts: posts.count ?? 0,
+    categories: categories.count ?? 0,
+    profiles: profiles.count ?? 0,
+  };
 }

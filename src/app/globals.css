@@ -214,6 +214,14 @@ textarea.field { resize: vertical; line-height: 1.45; }
 .hero h1 { font-size: clamp(2.5rem, 6vw, 4.9rem); line-height: .98; }
 .mascot-wrap { display: flex; flex-direction: column; align-items: center; }
 .mascot { width: 100%; max-width: 460px; height: auto; display: block; overflow: visible; }
+.hero-slide { object-fit: contain; }
+.hero-slide-stack { width: 100%; max-width: 460px; }
+.hero-slide-stack .hero-slide-dark { display: none; }
+html[data-theme="dark"] .hero-slide-stack .hero-slide-light { display: none; }
+html[data-theme="dark"] .hero-slide-stack .hero-slide-dark { display: block; }
+@media (max-width: 900px) {
+  .hero-slide-stack { max-width: 320px; }
+}
 .bubble { position: relative; align-self: flex-start; margin-left: 6%; background: var(--paper); border: 3px solid var(--line); border-radius: 22px; padding: .6rem 1rem .7rem; max-width: 30ch; box-shadow: 5px 5px 0 var(--line); margin-bottom: .6rem; }
 .bubble::after { content: ""; position: absolute; left: 3.2rem; bottom: -15px; width: 22px; height: 22px; background: var(--paper); border-right: 3px solid var(--line); border-bottom: 3px solid var(--line); transform: rotate(45deg); }
 .bubble strong { display: block; font-family: var(--display); font-weight: 400; font-size: 1.3rem; line-height: 1.15; }
@@ -315,8 +323,8 @@ ol.steps p { margin: .25rem 0 0; }
 .review p { margin: .3rem 0 0; font-weight: 600; }
 
 /* ---------- profile ---------- */
-.stand-hero { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 6fr); gap: 2rem; align-items: center; padding-top: 1.6rem; }
-.stand-hero .mascot { max-width: 400px; }
+.stand-hero { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 5fr); gap: 2rem; align-items: center; padding-top: 1.6rem; }
+.stand-hero .mascot, .stand-hero .hero-slide-stack { max-width: min(560px, 100%); width: 100%; margin-inline: auto; justify-self: center; }
 .who-row { display: flex; gap: 1rem; align-items: center; }
 .who-row .h1 { margin: 0; }
 .who-row p { margin: .2rem 0 0; }
@@ -335,6 +343,52 @@ ol.steps p { margin: .25rem 0 0; }
 .tabs a { padding: .6rem 1.1rem; font-weight: 900; text-decoration: none; border: 3px solid transparent; border-bottom: 0; border-radius: 16px 16px 0 0; margin-bottom: -3px; }
 .tabs a[aria-current] { background: var(--paper); border-color: var(--line); }
 
+/* ---------- admin / blog ---------- */
+.admin .page-head { padding-bottom: .4rem; }
+.admin-nav { display: flex; flex-wrap: wrap; gap: .35rem; margin: 0 0 1.6rem; padding-bottom: .8rem; border-bottom: 3px solid var(--line); }
+.admin-nav a { padding: .4rem .9rem; border-radius: 999px; font-weight: 800; text-decoration: none; border: 2.5px solid transparent; }
+.admin-nav a[aria-current="page"] { background: var(--yellow); color: var(--on-yellow); border-color: var(--brown); }
+.admin-nav a:not([aria-current]):hover { background: var(--panel); }
+.admin-stats { list-style: none; margin: 0 0 1.4rem; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .8rem; }
+.admin-actions { display: flex; flex-wrap: wrap; gap: .7rem; margin-bottom: 1rem; }
+.admin-cat-edit { display: grid; grid-template-columns: 4rem 1fr 1.4fr 5rem auto; gap: .5rem; align-items: center; width: 100%; }
+.admin-cd { display: inline-flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.admin-bulk { display: grid; gap: .8rem; }
+.admin-bulk-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .7rem 1rem;
+  padding: .7rem .9rem; background: var(--panel); border: 3px solid var(--line);
+  border-radius: 18px; box-shadow: 4px 4px 0 var(--line);
+}
+.admin-bulk-bar .row-actions { margin-left: auto; }
+.admin-check { display: inline-flex; align-items: center; gap: .45rem; font-weight: 800; cursor: pointer; }
+.admin-check input { width: 1.15rem; height: 1.15rem; accent-color: var(--brown); }
+.row-check { align-self: start; margin-top: .35rem; }
+.row.is-selected { background: color-mix(in srgb, var(--yellow) 35%, var(--paper)); border-radius: 16px; }
+.admin-bulk-status { display: inline-flex; align-items: center; }
+.admin-bulk-status .field { min-width: 8.5rem; }
+.row { align-items: start; }
+@media (max-width: 900px) {
+  .admin-bulk-bar .row-actions { margin-left: 0; width: 100%; }
+}
+.post-body { min-height: 18rem; font-weight: 600; line-height: 1.55; }
+.post-cover-preview { display: grid; gap: .5rem; margin-top: .5rem; }
+.post-cover-preview img { width: min(100%, 480px); height: auto; border-radius: 18px; border: 3px solid var(--line); }
+.blog-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.2rem; }
+.blog-card { background: var(--paper); border: 3px solid var(--line); border-radius: 24px; box-shadow: 5px 5px 0 var(--line); overflow: hidden; display: flex; flex-direction: column; }
+.blog-card-media { display: block; aspect-ratio: 16 / 9; background: var(--panel); }
+.blog-card-media img { width: 100%; height: 100%; object-fit: cover; }
+.blog-card-body { padding: 1rem 1.1rem 1.2rem; display: grid; gap: .45rem; }
+.blog-card-body h2 { font-size: 1.35rem; margin: 0; }
+.blog-card-body h2 a { text-decoration: none; }
+.blog-card-body p { margin: 0; font-weight: 600; }
+.blog-hero { margin: 0 0 1.5rem; border: 3px solid var(--line); border-radius: 28px; overflow: hidden; box-shadow: 6px 6px 0 var(--line); }
+.blog-hero img { width: 100%; height: auto; display: block; }
+.blog-body { font-weight: 600; font-size: 1.08rem; }
+.blog-body p { margin: 0 0 1.1rem; max-width: 65ch; }
+@media (max-width: 900px) {
+  .admin-cat-edit { grid-template-columns: 1fr 1fr; }
+}
+
 /* ---------- about / login ---------- */
 .about { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: 2.5rem; align-items: start; padding-bottom: 2rem; }
 .about p { font-weight: 600; max-width: 60ch; }
@@ -352,7 +406,7 @@ ol.steps p { margin: .25rem 0 0; }
   .hero .mascot { max-width: 320px; }
   .bubble { margin-left: 0; }
   .ing-panel { position: static; }
-  .stand-hero .mascot { max-width: 280px; margin-inline: auto; }
+  .stand-hero .mascot, .stand-hero .hero-slide-stack { max-width: min(360px, 100%); margin-inline: auto; }
 }
 @media (max-width: 640px) {
   .top .wrap { display: flex; flex-wrap: wrap; }

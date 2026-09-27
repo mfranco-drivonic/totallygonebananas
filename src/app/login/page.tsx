@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/LoginForm";
 import { Mascot } from "@/components/Mascot";
+import { getViewer } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -9,6 +11,8 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const raw = typeof sp.next === "string" ? sp.next : "/profile";
   const next = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/profile";
   const failed = sp.error === "auth";
+  const { userId } = await getViewer();
+  if (userId && !failed) redirect(next);
   return (
     <div className="wrap narrow login">
       <Mascot className="login-mascot" />

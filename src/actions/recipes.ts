@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getViewer, isEditorRole } from "@/lib/queries";
 import { fieldErrors, recipeInput } from "@/lib/validation";
 import { slugify } from "@/lib/format";
+import { REFERRAL_COOKIE, sanitizeReferral } from "@/lib/referral";
 import type { RecipeStatus } from "@/lib/types";
 
 export type SaveRecipeResult = { ok: true; slug: string; status: RecipeStatus } | { ok: false; errors: Record<string, string> };
@@ -99,9 +101,22 @@ export async function saveRecipe(raw: unknown, recipeId?: string): Promise<SaveR
     await supabase.from("recipe_media").delete().eq("recipe_id", id);
   } else {
     slug = await uniqueSlug(input.title, supabase);
-    const { data, error } = await supabase.from("recipes").insert({ ...row, slug, author_id: userId }).select("id").single();
+    const jar = await cookies();
+    const referredBy = sanitizeReferral(jar.get(REFERRAL_COOKIE)?.value);
+    const { data, error } = await supabase
+      .from("recipes")
+      .insert({ ...row, slug, author_id: userId, referred_by: referredBy })
+      .select("id")
+      .single();
     if (error || !data) return { ok: false, errors: { form: "Couldn't save your recipe. Please try again." } };
     id = data.id;
+    if (referredBy) {
+      try {
+        jar.delete(REFERRAL_COOKIE);
+      } catch {
+        /* ignore read-only cookie contexts */
+      }
+    }
   }
 
   if (input.gallery.length) {

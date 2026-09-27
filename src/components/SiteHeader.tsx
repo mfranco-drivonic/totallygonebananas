@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { getViewer, isEditorRole } from "@/lib/queries";
+import { getViewer } from "@/lib/queries";
 import { publicUrl, AVATAR_BUCKET } from "@/lib/media";
 import { NavLinks } from "@/components/NavLinks";
 
@@ -11,7 +11,7 @@ export async function SiteHeader() {
   return (
     <header className="top">
       <div className="wrap">
-        <NavLinks side="left" showReview={isEditorRole(profile)} />
+        <NavLinks side="left" />
         <Link className="brand" href="/" aria-label="Totally Gone Bananas home">
           <Image src="/logo.png" alt="" width={186} height={201} priority />
         </Link>

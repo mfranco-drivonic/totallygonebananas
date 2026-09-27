@@ -6,9 +6,11 @@ import { getViewer, isEditorRole, type RecipeCardData } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
 import { AVATAR_BUCKET, isLocalUrl, publicUrl } from "@/lib/media";
 import { RecipeGrid } from "@/components/RecipeGrid";
-import { Mascot } from "@/components/Mascot";
+import { HeroSlide } from "@/components/HeroSlide";
 import { CopyLinkButton } from "@/components/OwnerTools";
 import { plural, shortDate, siteUrlSafe } from "@/app/profile/helpers";
+import { getDarkMainSliderImages, getMainSliderImages, pickRandomSlide } from "@/lib/main-slider";
+import { referralHandle } from "@/lib/referral";
 import type { RecipeStatus } from "@/lib/types";
 
 export const metadata: Metadata = { title: "My Banana Stand" };
@@ -25,10 +27,12 @@ export default async function ProfilePage({ searchParams }: PageProps<"/profile"
   const tab = (["saved", "recipes", "made"] as const).find((t) => t === sp.tab) ?? "saved";
   const supabase = await createClient();
 
-  const [savesRes, mineRes, logsRes] = await Promise.all([
+  const [savesRes, mineRes, logsRes, lightSlides, darkSlides] = await Promise.all([
     supabase.from("saves").select("created_at, recipe:recipes(id, slug, title, description, category_id, emoji, total_minutes, time_note, servings, difficulty, tags, cover_path, status, published_at, created_at)").eq("user_id", userId).order("created_at", { ascending: false }),
     supabase.from("recipes").select("id, slug, title, status, review_note, updated_at").eq("author_id", userId).order("updated_at", { ascending: false }),
     supabase.from("cook_logs").select("id, rating, tip, created_at, recipe:recipes(slug, title)").eq("user_id", userId).order("created_at", { ascending: false }).limit(50),
+    getMainSliderImages(),
+    getDarkMainSliderImages(),
   ]);
   const saved = (savesRes.data ?? []).map((s) => s.recipe as unknown as RecipeCardData | null).filter((r): r is RecipeCardData => !!r);
   const mine = mineRes.data ?? [];
@@ -39,11 +43,19 @@ export default async function ProfilePage({ searchParams }: PageProps<"/profile"
   const next = LEVELS[level + 1];
   const pct = next ? Math.round(((points - LEVELS[level].min) / (next.min - LEVELS[level].min)) * 100) : 100;
   const avatar = publicUrl(profile.avatar_path, AVATAR_BUCKET);
+  const heroLight = pickRandomSlide(lightSlides);
+  const heroDark = pickRandomSlide(darkSlides);
+  const inviteHandle = referralHandle(profile, userId);
+  const inviteUrl = new URL("/recipes/new", await siteUrlSafe());
+  inviteUrl.searchParams.set("utm_source", "invite");
+  inviteUrl.searchParams.set("utm_medium", "share");
+  inviteUrl.searchParams.set("utm_campaign", "recipe_submission");
+  inviteUrl.searchParams.set("utm_content", inviteHandle);
 
   return (
     <div className="wrap">
       <section className="stand-hero">
-        <Mascot level={level} label={`Your mascot at level ${level + 1}`} />
+        <HeroSlide lightSrc={heroLight} darkSrc={heroDark} />
         <div>
           <div className="who-row">
             <div className="avatar-lg">{avatar ? <Image src={avatar} alt="" fill sizes="96px" unoptimized={isLocalUrl(avatar)} /> : <span aria-hidden="true">{(profile.display_name || "?").slice(0, 1).toUpperCase()}</span>}</div>
@@ -69,8 +81,11 @@ export default async function ProfilePage({ searchParams }: PageProps<"/profile"
           </div>
           {isEditorRole(profile) && (
             <div className="panel invite">
-              <p><b>Invite contributors.</b> Anyone with this link can sign in and submit a recipe for your review.</p>
-              <CopyLinkButton url={`${await siteUrlSafe()}/recipes/new`} label="Copy the submission link" />
+              <p><b>Invite contributors.</b> Anyone with this link can sign in and submit a recipe for your review. Submissions are attributed to <code>@{inviteHandle}</code> in Admin → Referrals.</p>
+              {!profile.username && (
+                <p className="hint">Tip: <Link href="/profile/settings">set a username</Link> so your invite link is easier to recognize.</p>
+              )}
+              <CopyLinkButton url={inviteUrl.toString()} label="Copy the submission link" />
             </div>
           )}
         </div>

@@ -3,6 +3,7 @@
 
 export type Role = "member" | "editor" | "admin";
 export type RecipeStatus = "draft" | "pending" | "published" | "rejected";
+export type PostStatus = "draft" | "published";
 export type MediaKind = "image" | "video";
 
 export interface Profile {
@@ -58,6 +59,7 @@ export interface Recipe {
   status: RecipeStatus;
   author_id: string | null;
   review_note: string | null;
+  referred_by: string | null;
   created_at: string;
   updated_at: string;
   published_at: string | null;
@@ -85,4 +87,21 @@ export interface CookLog {
   created_at: string;
 }
 
+export interface Post {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  body: string;
+  cover_path: string | null;
+  status: PostStatus;
+  author_id: string | null;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+}
+
+export type PostWithAuthor = Post & { author: AuthorSummary | null };
+
 export const TAGS = ["vegan", "gluten-free", "dairy-free", "kid-friendly", "no added sugar", "quick"] as const;
+export const ROLES = ["member", "editor", "admin"] as const;

@@ -57,6 +57,36 @@ export const profileInput = z.object({
 
 export type ProfileInput = z.input<typeof profileInput>;
 
+export const postInput = z.object({
+  title: z.string().trim().min(2, "Give your post a title").max(120, "Keep the title under 120 characters"),
+  excerpt: z.string().trim().max(300, "Keep the excerpt under 300 characters").default(""),
+  body: z.string().trim().min(1, "Write something").max(50000, "That's a bit long — keep it under 50,000 characters"),
+  coverPath: z.string().regex(MEDIA_PATH_RE).nullable().default(null),
+  intent: z.enum(["draft", "publish"]),
+});
+
+export type PostInput = z.input<typeof postInput>;
+
+export const categoryInput = z.object({
+  id: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9-]{2,40}$/, "IDs are 2–40 lowercase letters, numbers, or hyphens")
+    .optional(),
+  name: z.string().trim().min(2, "Name the category").max(40),
+  emoji: z.string().trim().max(8).default("🍌"),
+  tagline: z.string().trim().max(120).default(""),
+  sortOrder: z.number().int().min(0).max(999).default(0),
+});
+
+export type CategoryInput = z.input<typeof categoryInput>;
+
+export const roleInput = z.object({
+  userId: z.string().uuid(),
+  role: z.enum(["member", "editor", "admin"]),
+});
+
 /** Turns zod issues into { "steps.2.text": "message" } for inline form errors. */
 export function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};

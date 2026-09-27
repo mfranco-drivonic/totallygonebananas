@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const LEFT = [
   { href: "/", label: "Home", match: (p: string) => p === "/" },
   { href: "/recipes", label: "Recipes", match: (p: string) => p.startsWith("/recipes") && p !== "/recipes/new" },
+  { href: "/blog", label: "Blog", match: (p: string) => p.startsWith("/blog") },
 ];
 
 const RIGHT = [
@@ -13,23 +14,9 @@ const RIGHT = [
   { href: "/about", label: "About", match: (p: string) => p === "/about" },
 ];
 
-export function NavLinks({
-  side,
-  showReview = false,
-}: {
-  side: "left" | "right";
-  showReview?: boolean;
-}) {
+export function NavLinks({ side }: { side: "left" | "right" }) {
   const path = usePathname();
-  const links =
-    side === "left"
-      ? [
-          ...LEFT,
-          ...(showReview
-            ? [{ href: "/admin/review", label: "Review queue", match: (p: string) => p.startsWith("/admin") }]
-            : []),
-        ]
-      : RIGHT;
+  const links = side === "left" ? LEFT : RIGHT;
 
   return (
     <nav className={`main ${side}`} aria-label={side === "left" ? "Main" : "Account"}>
